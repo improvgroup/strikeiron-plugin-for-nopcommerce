@@ -4,11 +4,8 @@ namespace Nop.Plugin.Tax.StrikeIron.Models
 {
     public class TaxStrikeIronModel
     {
-        [NopResourceDisplayName("Plugins.Tax.StrikeIron.UserId")]
-        public string UserId { get; set; }
-
-        [NopResourceDisplayName("Plugins.Tax.StrikeIron.Password")]
-        public string Password { get; set; }
+        [NopResourceDisplayName("Plugins.Tax.StrikeIron.LicenseKey")]
+        public string LicenseKey { get; set; }
 
         [NopResourceDisplayName("Plugins.Tax.StrikeIron.TestingUsa.Zip")]
         public string TestingUsaZip { get; set; }

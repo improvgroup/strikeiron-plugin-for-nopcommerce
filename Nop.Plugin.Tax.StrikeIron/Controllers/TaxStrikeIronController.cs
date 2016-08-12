@@ -2,6 +2,7 @@
 using System.Web.Mvc;
 using Nop.Plugin.Tax.StrikeIron.Models;
 using Nop.Services.Configuration;
+using Nop.Services.Localization;
 using Nop.Services.Tax;
 using Nop.Web.Framework.Controllers;
 
@@ -10,35 +11,50 @@ namespace Nop.Plugin.Tax.StrikeIron.Controllers
     [AdminAuthorize]
     public class TaxStrikeIronController : BasePluginController
     {
+        #region Fields
+
         private readonly ITaxService _taxService;
-        private readonly StrikeIronTaxSettings _strikeIronTaxSettings;
         private readonly ISettingService _settingService;
+        private readonly ILocalizationService _localizationService;
+        private readonly StrikeIronTaxSettings _strikeIronTaxSettings;
+
+        #endregion
+
+        #region Ctor
 
         public TaxStrikeIronController(ITaxService taxService,
-            StrikeIronTaxSettings strikeIronTaxSettings, ISettingService settingService)
+            ISettingService settingService,
+            ILocalizationService localizationService,
+            StrikeIronTaxSettings strikeIronTaxSettings)
         {
             this._taxService = taxService;
-            this._strikeIronTaxSettings = strikeIronTaxSettings;
             this._settingService = settingService;
+            this._localizationService = localizationService;
+            this._strikeIronTaxSettings = strikeIronTaxSettings;
         }
+
+        #endregion
+
+        #region Methods
 
         [ChildActionOnly]
         public ActionResult Configure()
         {
-            var model = new TaxStrikeIronModel();
-            model.UserId = _strikeIronTaxSettings.UserId;
-            model.Password = _strikeIronTaxSettings.Password;
-            model.TestingCanadaProvinceCode = "ON";
-            model.TestingUsaZip = "10001";
-            model.TestingUsaResult = "";
-            model.TestingCanadaResult = "";
+            var model = new TaxStrikeIronModel
+            {
+                LicenseKey = _strikeIronTaxSettings.LicenseKey,
+                TestingCanadaProvinceCode = "",
+                TestingUsaZip = "",
+                TestingUsaResult = "",
+                TestingCanadaResult = ""
+            };
+
             return View("~/Plugins/Tax.StrikeIron/Views/TaxStrikeIron/Configure.cshtml", model);
         }
 
         [ChildActionOnly]
-        [HttpPost, ActionName("Configure")]
         [FormValueRequired("save")]
-        public ActionResult ConfigurePOST(TaxStrikeIronModel model)
+        public ActionResult Configure(TaxStrikeIronModel model)
         {
             if (!ModelState.IsValid)
             {
@@ -50,9 +66,10 @@ namespace Nop.Plugin.Tax.StrikeIron.Controllers
             model.TestingCanadaResult = "";
 
             //save settings
-            _strikeIronTaxSettings.UserId = model.UserId;
-            _strikeIronTaxSettings.Password = model.Password;
+            _strikeIronTaxSettings.LicenseKey = model.LicenseKey;
             _settingService.SaveSetting(_strikeIronTaxSettings);
+
+            SuccessNotification(_localizationService.GetResource("Admin.Plugins.Saved"));
 
             return View("~/Plugins/Tax.StrikeIron/Views/TaxStrikeIron/Configure.cshtml", model);
         }
@@ -75,10 +92,10 @@ namespace Nop.Plugin.Tax.StrikeIron.Controllers
             {
                 var strikeIronTaxProvider = _taxService.LoadTaxProviderBySystemName("Tax.StrikeIron.Basic") as StrikeIronTaxProvider;
                 string zip = model.TestingUsaZip;
-                string userId = model.UserId;
-                string password = model.Password;
+                string userId = model.LicenseKey;
                 string error = "";
-                decimal taxRate = strikeIronTaxProvider.GetTaxRateUsa(zip, userId, password, ref error);
+                decimal taxRate = strikeIronTaxProvider.GetTaxRateUsa(zip, userId, ref error);
+
                 if (!String.IsNullOrEmpty(error))
                     model.TestingUsaResult = error;
                 else
@@ -110,12 +127,11 @@ namespace Nop.Plugin.Tax.StrikeIron.Controllers
             try
             {
                 var strikeIronTaxProvider = _taxService.LoadTaxProviderBySystemName("Tax.StrikeIron.Basic") as StrikeIronTaxProvider;
-                
                 string province = model.TestingCanadaProvinceCode;
-                string userId = model.UserId;
-                string password = model.Password;
+                string userId = model.LicenseKey;
                 string error = "";
-                decimal taxRate = strikeIronTaxProvider.GetTaxRateCanada(province, userId, password, ref error);
+                decimal taxRate = strikeIronTaxProvider.GetTaxRateCanada(province, userId, ref error);
+
                 if (!String.IsNullOrEmpty(error))
                     model.TestingCanadaResult = error;
                 else
@@ -126,9 +142,9 @@ namespace Nop.Plugin.Tax.StrikeIron.Controllers
                 model.TestingCanadaResult = exc.ToString();
             }
 
-
             return View("~/Plugins/Tax.StrikeIron/Views/TaxStrikeIron/Configure.cshtml", model);
         }
 
+        #endregion
     }
 }

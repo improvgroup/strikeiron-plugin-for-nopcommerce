@@ -6,101 +6,82 @@
 @using (Html.BeginForm())
 {
     @Html.AntiForgeryToken()
-    <table class="adminContent">
-        <tr>
-            <td colspan="2">
-                <b>To use this service, you need to create a StrikeIron account and purchase its online
-                    tax service.
-                    <br />
-                    <b>To enable this provider, you'll need to:<br />
-                    </b>
-                    <br />
-                    Step 1. <a href="http://www.strikeiron.com" target="_blank">Create a StrikeIron account</a>
-                    <br />
-                    Step 2. Purchase the <a href="http://www.strikeiron.com/ProductDetail.aspx?p=444"
-                        target="_blank">service</a>
-                    <br />
+    <div class="panel-group">
+        <div class="panel panel-default">
+            <div class="panel-body">
+                <p>
+                    <b>To use this service, you need to create a StrikeIron account and purchase its online tax service.</b><br/>
+                    <b>To enable this provider, you'll need to:</b>
+                    <br /><br />
+                    Step 1. <a href="https://now.informatica.com/en_daas-free-trial-1" target="_blank">Create a StrikeIron account</a><br />
+                    Step 2. Purchase the <a href="https://now.informatica.com/en_daas-other-pricing-2" target="_blank">service</a><br />
                     Step 3. Fill in your StrikeIron account details below
-                    <br />
-                    <br />
-                </b>
-            </td>
-        </tr>
-        <tr>
-            <td class="adminTitle">
-                @Html.NopLabelFor(model => model.UserId):
-            </td>
-            <td class="adminData">
-                @Html.EditorFor(model => model.UserId)
-            </td>
-        </tr>
-        <tr>
-            <td class="adminTitle">
-                @Html.NopLabelFor(model => model.Password):
-            </td>
-            <td class="adminData">
-                @Html.EditorFor(model => model.Password)
-            </td>
-        </tr>
-        <tr>
-            <td colspan="2">
-                <input type="submit" name="save" class="k-button" value="@T("Admin.Common.Save")" />
-            </td>
-        </tr>
-        <tr>
-            <td colspan="2">
-                <hr />
-                <br />
-                <b>@T("Plugins.Tax.StrikeIron.TestingUsa.Title")</b>
-            </td>
-        </tr>
-        <tr>
-            <td class="adminTitle">
-                @Html.NopLabelFor(model => model.TestingUsaZip):
-            </td>
-            <td class="adminData">
-                @Html.EditorFor(model => model.TestingUsaZip)
-            </td>
-        </tr>
-        <tr>
-            <td class="adminTitle">
-            </td>
-            <td class="adminData" style="color: red">
-                @Model.TestingUsaResult
-            </td>
-        </tr>
-        <tr>
-            <td colspan="2" align="left">
-                <input type="submit" name="testUsa" class="k-button" value="@T("Plugins.Tax.StrikeIron.TestingUsa.Button")" />
-            </td>
-        </tr>
-        <tr>
-            <td colspan="2">
-                <hr />
-                <br />
-                <strong>@T("Plugins.Tax.StrikeIron.TestingCanada.Title")</strong>
-            </td>
-        </tr>
-        <tr>
-            <td class="adminTitle">
-                @Html.NopLabelFor(model => model.TestingCanadaProvinceCode):
-            </td>
-            <td class="adminData">
-                @Html.EditorFor(model => model.TestingCanadaProvinceCode)
-            </td>
-        </tr>
-        <tr>
-            <td class="adminTitle">
-            </td>
-            <td class="adminData" style="color: red">
-                @Model.TestingCanadaResult
-            </td>
-        </tr>
-        <tr>
-            <td colspan="2" align="left">
-                <input type="submit" name="testCanada" class="k-button" value="@T("Plugins.Tax.StrikeIron.TestingCanada.Button")" />
-            </td>
-        </tr>
-    </table>
-    
+                </p>
+                <div class="form-group">
+                    <div class="col-md-3">
+                        @Html.NopLabelFor(model => model.LicenseKey)
+                    </div>
+                    <div class="col-md-9">
+                        @Html.NopEditorFor(model => model.LicenseKey)
+                        @Html.ValidationMessageFor(model => model.LicenseKey)
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-md-9 col-md-offset-3">
+                        <input type="submit" name="save" class="btn bg-blue" value="@T("Admin.Common.Save")" />
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="panel panel-default">
+            <div class="panel-heading">
+                @T("Plugins.Tax.StrikeIron.TestingUsa.Title")
+            </div>
+            <div class="panel-body">
+                <div class="form-group">
+                    <div class="col-md-3">
+                        @Html.NopLabelFor(model => model.TestingUsaZip)
+                    </div>
+                    <div class="col-md-9">
+                        <div class="input-group">
+                            @Html.NopEditorFor(model => model.TestingUsaZip)
+                            <div class="input-group-btn">
+                                <input type="submit" name="testUsa" class="btn btn-info" value="@T("Plugins.Tax.StrikeIron.TestService.Button")"/>
+                            </div>
+                        </div>
+                        @Html.ValidationMessageFor(model => model.TestingUsaZip)
+                        @if (!string.IsNullOrEmpty(Model.TestingUsaResult))
+                        {
+                            <span class="text-danger">@Model.TestingUsaResult</span>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="panel panel-default">
+            <div class="panel-heading">
+                @T("Plugins.Tax.StrikeIron.TestingCanada.Title")
+            </div>
+            <div class="panel-body">
+                <div class="form-group">
+                    <div class="col-md-3">
+                        @Html.NopLabelFor(model => model.TestingCanadaProvinceCode)
+                    </div>
+                    <div class="col-md-9">
+                        <div class="input-group">
+                            @Html.NopEditorFor(model => model.TestingCanadaProvinceCode)
+                            <div class="input-group-btn">
+                                <input type="submit" name="testCanada" class="btn btn-info" value="@T("Plugins.Tax.StrikeIron.TestService.Button")"/>
+                            </div>
+                        </div>
+                        @Html.ValidationMessageFor(model => model.TestingCanadaProvinceCode)
+                        @if (!string.IsNullOrEmpty(Model.TestingCanadaResult))
+                        {
+                            <span class="text-danger">@Model.TestingCanadaResult</span>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 }
