@@ -1,6 +1,7 @@
 ﻿// Contributor(s): Bill Eisenman, ALOM Technologies, USA. Upgraded to TaxBasic v5
 
 using System;
+using System.Linq;
 using System.Web.Routing;
 using Nop.Core.Caching;
 using Nop.Core.Plugins;
@@ -66,54 +67,63 @@ namespace Nop.Plugin.Tax.StrikeIron
                 result.AddError("Country is not set");
                 return result;
             }
+            
+            var error = string.Empty;
+            var isoCode = address.Country.TwoLetterIsoCode.ToLower();
+            var cacheKey = string.Empty;
 
-            string licenseKey = _strikeIronTaxSettings.LicenseKey;
-            decimal taxRate;
-
-            if (address.Country.TwoLetterIsoCode.ToLower() == "us")
+            switch (isoCode)
             {
-                if (String.IsNullOrEmpty(address.ZipPostalCode))
-                {
-                    result.AddError("Zip is not provided");
-
-                    return result;
-                }
-
-                string error = "";
-
-                taxRate = GetTaxRateUsa(address.ZipPostalCode, licenseKey, ref error);
-
-                if (!String.IsNullOrEmpty(error))
-                {
-                    result.AddError(error);
-
-                    return result;
-                }
+                case "us":
+                    if (string.IsNullOrEmpty(address.ZipPostalCode))
+                    {
+                        result.AddError("Zip is not provided");
+                    }
+                    else
+                    {
+                        cacheKey = string.Format(TAXRATEUSA_KEY, address.ZipPostalCode);
+                    }
+                    
+                    break;
+                case "ca":
+                    if (address.StateProvince == null)
+                    {
+                        result.AddError("Province is not set");
+                    }
+                    else
+                    {
+                        cacheKey = string.Format(TAXRATECANADA_KEY, address.StateProvince.Abbreviation);
+                    }
+                    break;
+                default:
+                    result.AddError("Tax can be calculated only for USA zip or Canada province");
+                    break;
             }
-            else if (address.Country.TwoLetterIsoCode.ToLower() == "ca")
-            {
-                if (address.StateProvince == null)
-                {
-                    result.AddError("Province is not set");
 
-                    return result;
+            if (string.IsNullOrEmpty(cacheKey) || result.Errors.Any())
+                return result;
+
+            var taxRate = _cacheManager.Get(cacheKey, () =>
+            {
+                var tax = decimal.Zero;
+
+                try
+                {
+                    tax = isoCode == "us"
+                        ? GetTaxRateUsa(address.ZipPostalCode, ref error)
+                        : GetTaxRateCanada(address.StateProvince.Abbreviation, ref error);
+                }
+                catch (Exception ex)
+                {
+                    error = ex.Message;
                 }
 
-                string error = "";
+                return tax;
+            });
 
-                taxRate = GetTaxRateCanada(address.StateProvince.Abbreviation, licenseKey, ref error);
-
-                if (!String.IsNullOrEmpty(error))
-                {
-                    result.AddError(error);
-
-                    return result;
-                }
-            }
-            else
+            if (!string.IsNullOrEmpty(error))
             {
-                result.AddError("Tax can be calculated only for USA zip or Canada province");
-
+                result.AddError(error);
                 return result;
             }
 
@@ -122,70 +132,57 @@ namespace Nop.Plugin.Tax.StrikeIron
             return result;
         }
 
+        public TaxDataBasic.TaxDataBasic GetTaxService()
+        {
+            var taxService = new TaxDataBasic.TaxDataBasic
+            {
+                LicenseInfoValue = new LicenseInfo
+                {
+                    RegisteredUser = new RegisteredUser
+                    {
+                        UserID = _strikeIronTaxSettings.LicenseKey
+                    }
+                }
+            };
+            return taxService;
+        }
+
         /// <summary>
         /// Gets a tax rate
         /// </summary>
         /// <param name="zipCode">zip</param>
-        /// <param name="licenseKey">License key</param>
         /// <param name="error">Error</param>
         /// <returns>Tax rate</returns>
-        public decimal GetTaxRateUsa(string zipCode, 
-            string licenseKey,
+        public decimal GetTaxRateUsa(string zipCode,
             ref string error)
         {
-            var key = string.Format(TAXRATEUSA_KEY, zipCode);
-            decimal result = decimal.Zero;
+            var result = decimal.Zero;
 
-            try
+            var wsOutput = GetTaxService().GetTaxRateUS(zipCode);
+
+            // The GetTaxRateUS operation can now be called.  The output type for this operation is SIWSOutputOfTaxRateUSAData.
+            // Note that for simplicity, there is no error handling in this sample project.  In a production environment, any
+            // web service call should be encapsulated in a try-catch block.
+
+            // The output objects of this StrikeIron web service contains two sections: ServiceStatus, which stores data
+            // indicating the success/failure status of the the web service request; and ServiceResult, which contains the
+            // actual data returne as a result of the request.
+
+            // ServiceStatus contains two elements - StatusNbr: a numeric status code, and StatusDescription: a string
+            // describing the status of the output object.  As a standard, you can apply the following assumptions for the value of
+            // StatusNbr:
+            //   200-299: Successful web service call (data found, etc...)
+            //   300-399: Nonfatal error (No data found, etc...)
+            //   400-499: Error due to invalid input
+            //   500+: Unexpected internal error; contact support@strikeiron.com
+            if ((wsOutput.ServiceStatus.StatusNbr >= 200) && (wsOutput.ServiceStatus.StatusNbr < 300))
             {
-                result = _cacheManager.Get(key, () =>
-                {
-                    var tax = Decimal.Zero;
-
-                    var taxService = new TaxDataBasic.TaxDataBasic
-                    {
-                        LicenseInfoValue = new LicenseInfo
-                        {
-                            RegisteredUser = new RegisteredUser
-                            {
-                                UserID = licenseKey
-                            }
-                        }
-                    };
-
-                    // The GetTaxRateUS operation can now be called.  The output type for this operation is SIWSOutputOfTaxRateUSAData.
-                    // Note that for simplicity, there is no error handling in this sample project.  In a production environment, any
-                    // web service call should be encapsulated in a try-catch block.
-                    var wsOutput = taxService.GetTaxRateUS(zipCode);
-
-                    // The output objects of this StrikeIron web service contains two sections: ServiceStatus, which stores data
-                    // indicating the success/failure status of the the web service request; and ServiceResult, which contains the
-                    // actual data returne as a result of the request.
-
-                    // ServiceStatus contains two elements - StatusNbr: a numeric status code, and StatusDescription: a string
-                    // describing the status of the output object.  As a standard, you can apply the following assumptions for the value of
-                    // StatusNbr:
-                    //   200-299: Successful web service call (data found, etc...)
-                    //   300-399: Nonfatal error (No data found, etc...)
-                    //   400-499: Error due to invalid input
-                    //   500+: Unexpected internal error; contact support@strikeiron.com
-                    if ((wsOutput.ServiceStatus.StatusNbr >= 200) && (wsOutput.ServiceStatus.StatusNbr < 300))
-                    {
-                        tax = Convert.ToDecimal(wsOutput.ServiceResult.TotalUseTax);
-                    }
-                    else
-                    {
-                        // StrikeIron does not return SoapFault for invalid data when it cannot find a zipcode. 
-                        throw new Exception(string.Format("[{0}] - {1}", wsOutput.ServiceStatus.StatusNbr,
-                            wsOutput.ServiceStatus.StatusDescription));
-                    }
-
-                    return tax;
-                });
+                result = Convert.ToDecimal(wsOutput.ServiceResult.TotalUseTax);
             }
-            catch (Exception ex)
+            else
             {
-                error = ex.Message;
+                // StrikeIron does not return SoapFault for invalid data when it cannot find a zipcode. 
+                error = string.Format("[{0}] - {1}", wsOutput.ServiceStatus.StatusNbr, wsOutput.ServiceStatus.StatusDescription);
             }
 
             return result;
@@ -195,65 +192,36 @@ namespace Nop.Plugin.Tax.StrikeIron
         /// Gets a tax rate
         /// </summary>
         /// <param name="province">province</param>
-        /// <param name="licenseKey">License key</param>
         /// <param name="error">Error</param>
         /// <returns>Tax rate</returns>
-        public decimal GetTaxRateCanada(string province, 
-            string licenseKey,
+        public decimal GetTaxRateCanada(string province,
             ref string error)
         {
-            string key = string.Format(TAXRATECANADA_KEY, province);
-            decimal result = decimal.Zero;
+            var result = decimal.Zero;
 
-            try
+            // The GetTaxRateCanada operation can now be called.  The output type for this operation is SIWSOutputOfTaxRateCanadaData.
+            // Note that for simplicity, there is no error handling in this sample project.  In a production environment, any
+            // web service call should be encapsulated in a try-catch block.
+            var wsOutput = GetTaxService().GetTaxRateCanada(province);
+
+            // The output objects of this StrikeIron web service contains two sections: ServiceStatus, which stores data
+            // indicating the success/failure status of the the web service request; and ServiceResult, which contains the
+            // actual data returne as a result of the request.
+            // 
+            // ServiceStatus contains two elements - StatusNbr: a numeric status code, and StatusDescription: a string
+            // describing the status of the output object.  As a standard, you can apply the following assumptions for the value of
+            // StatusNbr:
+            //   200-299: Successful web service call (data found, etc...)
+            //   300-399: Nonfatal error (No data found, etc...)
+            //   400-499: Error due to invalid input
+            //   500+: Unexpected internal error; contact support@strikeiron.com
+            if ((wsOutput.ServiceStatus.StatusNbr >= 200) && (wsOutput.ServiceStatus.StatusNbr < 300))
             {
-                result = _cacheManager.Get(key, () =>
-                {
-                    var tax = decimal.Zero;
-
-                    var taxService = new TaxDataBasic.TaxDataBasic
-                    {
-                        LicenseInfoValue = new LicenseInfo
-                        {
-                            RegisteredUser = new RegisteredUser
-                            {
-                                UserID = licenseKey
-                            }
-                        }
-                    };
-
-                    // The GetTaxRateCanada operation can now be called.  The output type for this operation is SIWSOutputOfTaxRateCanadaData.
-                    // Note that for simplicity, there is no error handling in this sample project.  In a production environment, any
-                    // web service call should be encapsulated in a try-catch block.
-                    var wsOutput = taxService.GetTaxRateCanada(province);
-
-                    // The output objects of this StrikeIron web service contains two sections: ServiceStatus, which stores data
-                    // indicating the success/failure status of the the web service request; and ServiceResult, which contains the
-                    // actual data returne as a result of the request.
-                    // 
-                    // ServiceStatus contains two elements - StatusNbr: a numeric status code, and StatusDescription: a string
-                    // describing the status of the output object.  As a standard, you can apply the following assumptions for the value of
-                    // StatusNbr:
-                    //   200-299: Successful web service call (data found, etc...)
-                    //   300-399: Nonfatal error (No data found, etc...)
-                    //   400-499: Error due to invalid input
-                    //   500+: Unexpected internal error; contact support@strikeiron.com
-                    if ((wsOutput.ServiceStatus.StatusNbr >= 200) && (wsOutput.ServiceStatus.StatusNbr < 300))
-                    {
-                        tax = Convert.ToDecimal(wsOutput.ServiceResult.Total);
-                    }
-                    else
-                    {
-                        throw new Exception(string.Format("[{0}] - {1}", wsOutput.ServiceStatus.StatusNbr,
-                            wsOutput.ServiceStatus.StatusDescription));
-                    }
-
-                    return tax;
-                });
+                result = Convert.ToDecimal(wsOutput.ServiceResult.Total);
             }
-            catch (Exception ex)
+            else
             {
-                error = ex.Message;
+                error = string.Format("[{0}] - {1}", wsOutput.ServiceStatus.StatusNbr, wsOutput.ServiceStatus.StatusDescription);
             }
 
             return result;
@@ -269,7 +237,7 @@ namespace Nop.Plugin.Tax.StrikeIron
         {
             actionName = "Configure";
             controllerName = "TaxStrikeIron";
-            routeValues = new RouteValueDictionary() { { "Namespaces", "Nop.Plugin.Tax.StrikeIron.Controllers" }, { "area", null } };
+            routeValues = new RouteValueDictionary { { "Namespaces", "Nop.Plugin.Tax.StrikeIron.Controllers" }, { "area", null } };
         }
         
         /// <summary>
@@ -278,7 +246,7 @@ namespace Nop.Plugin.Tax.StrikeIron
         public override void Install()
         {
             //settings
-            var settings = new StrikeIronTaxSettings()
+            var settings = new StrikeIronTaxSettings
             {
                 LicenseKey = ""
             };

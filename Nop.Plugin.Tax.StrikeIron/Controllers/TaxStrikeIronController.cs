@@ -49,7 +49,7 @@ namespace Nop.Plugin.Tax.StrikeIron.Controllers
                 TestingCanadaResult = ""
             };
 
-            return View("~/Plugins/Tax.StrikeIron/Views/TaxStrikeIron/Configure.cshtml", model);
+            return View("~/Plugins/Tax.StrikeIron/Views/Configure.cshtml", model);
         }
 
         [ChildActionOnly]
@@ -71,7 +71,7 @@ namespace Nop.Plugin.Tax.StrikeIron.Controllers
 
             SuccessNotification(_localizationService.GetResource("Admin.Plugins.Saved"));
 
-            return View("~/Plugins/Tax.StrikeIron/Views/TaxStrikeIron/Configure.cshtml", model);
+            return View("~/Plugins/Tax.StrikeIron/Views/Configure.cshtml", model);
         }
 
         [ChildActionOnly]
@@ -84,29 +84,9 @@ namespace Nop.Plugin.Tax.StrikeIron.Controllers
                 return Configure();
             }
 
-            //clear testing results
-            model.TestingUsaResult = "";
-            model.TestingCanadaResult = "";
+            model.TestingUsaResult = Test(model, model.TestingUsaZip);
 
-            try
-            {
-                var strikeIronTaxProvider = _taxService.LoadTaxProviderBySystemName("Tax.StrikeIron.Basic") as StrikeIronTaxProvider;
-                string zip = model.TestingUsaZip;
-                string userId = model.LicenseKey;
-                string error = "";
-                decimal taxRate = strikeIronTaxProvider.GetTaxRateUsa(zip, userId, ref error);
-
-                if (!String.IsNullOrEmpty(error))
-                    model.TestingUsaResult = error;
-                else
-                    model.TestingUsaResult = string.Format("Rate for zip {0}: {1}", zip, taxRate.ToString("p"));
-            }
-            catch (Exception exc)
-            {
-                model.TestingUsaResult = exc.ToString();
-            }
-
-            return View("~/Plugins/Tax.StrikeIron/Views/TaxStrikeIron/Configure.cshtml", model);
+            return View("~/Plugins/Tax.StrikeIron/Views/Configure.cshtml", model);
         }
 
         [ChildActionOnly]
@@ -114,35 +94,40 @@ namespace Nop.Plugin.Tax.StrikeIron.Controllers
         [FormValueRequired("testCanada")]
         public ActionResult TestCanada(TaxStrikeIronModel model)
         {
-
             if (!ModelState.IsValid)
             {
                 return Configure();
             }
 
+            model.TestingCanadaResult = Test(model, province: model.TestingCanadaProvinceCode);
+            
+            return View("~/Plugins/Tax.StrikeIron/Views/Configure.cshtml", model);
+        }
+
+        private string Test(TaxStrikeIronModel model, string zip = null, string province = null)
+        {
             //clear testing results
             model.TestingUsaResult = "";
             model.TestingCanadaResult = "";
 
+            var strikeIronTaxProvider = _taxService.LoadTaxProviderBySystemName("Tax.StrikeIron.Basic") as StrikeIronTaxProvider;
+
+            if (strikeIronTaxProvider == null)
+            {
+                return "StrikeIron module cannot be loaded";
+            }
+
             try
             {
-                var strikeIronTaxProvider = _taxService.LoadTaxProviderBySystemName("Tax.StrikeIron.Basic") as StrikeIronTaxProvider;
-                string province = model.TestingCanadaProvinceCode;
-                string userId = model.LicenseKey;
-                string error = "";
-                decimal taxRate = strikeIronTaxProvider.GetTaxRateCanada(province, userId, ref error);
+                var error = string.Empty;
+                var taxRate = zip != null ? strikeIronTaxProvider.GetTaxRateUsa(zip, ref error) : strikeIronTaxProvider.GetTaxRateCanada(province, ref error);
 
-                if (!String.IsNullOrEmpty(error))
-                    model.TestingCanadaResult = error;
-                else
-                    model.TestingCanadaResult = string.Format("Rate for province {0}: {1}", province, taxRate.ToString("p"));
+                return string.IsNullOrEmpty(error) ? string.Format("Rate for zip {0}: {1}", zip, taxRate.ToString("p")) : error;
             }
             catch (Exception exc)
             {
-                model.TestingCanadaResult = exc.ToString();
+                return exc.ToString();
             }
-
-            return View("~/Plugins/Tax.StrikeIron/Views/TaxStrikeIron/Configure.cshtml", model);
         }
 
         #endregion
