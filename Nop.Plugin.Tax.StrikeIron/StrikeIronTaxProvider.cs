@@ -2,7 +2,7 @@
 
 using System;
 using System.Linq;
-using System.Web.Routing;
+using Nop.Core;
 using Nop.Core.Caching;
 using Nop.Core.Plugins;
 using Nop.Plugin.Tax.StrikeIron.TaxDataBasic;
@@ -29,6 +29,7 @@ namespace Nop.Plugin.Tax.StrikeIron
         private readonly ISettingService _settingService;
         private readonly ICacheManager _cacheManager;
         private readonly StrikeIronTaxSettings _strikeIronTaxSettings;
+        private readonly IWebHelper _webHelper;
 
         #endregion
 
@@ -36,11 +37,13 @@ namespace Nop.Plugin.Tax.StrikeIron
 
         public StrikeIronTaxProvider(ISettingService settingService,
             ICacheManager cacheManager,
-            StrikeIronTaxSettings strikeIronTaxSettings)
+            StrikeIronTaxSettings strikeIronTaxSettings,
+            IWebHelper webHelper)
         {
             this._settingService = settingService;
             this._cacheManager = cacheManager;
             this._strikeIronTaxSettings = strikeIronTaxSettings;
+            this._webHelper = webHelper;
         }
 
         #endregion
@@ -182,7 +185,7 @@ namespace Nop.Plugin.Tax.StrikeIron
             else
             {
                 // StrikeIron does not return SoapFault for invalid data when it cannot find a zipcode. 
-                error = string.Format("[{0}] - {1}", wsOutput.ServiceStatus.StatusNbr, wsOutput.ServiceStatus.StatusDescription);
+                error = $"[{wsOutput.ServiceStatus.StatusNbr}] - {wsOutput.ServiceStatus.StatusDescription}";
             }
 
             return result;
@@ -221,25 +224,17 @@ namespace Nop.Plugin.Tax.StrikeIron
             }
             else
             {
-                error = string.Format("[{0}] - {1}", wsOutput.ServiceStatus.StatusNbr, wsOutput.ServiceStatus.StatusDescription);
+                error = $"[{wsOutput.ServiceStatus.StatusNbr}] - {wsOutput.ServiceStatus.StatusDescription}";
             }
 
             return result;
         }
 
-        /// <summary>
-        /// Gets a route for provider configuration
-        /// </summary>
-        /// <param name="actionName">Action name</param>
-        /// <param name="controllerName">Controller name</param>
-        /// <param name="routeValues">Route values</param>
-        public void GetConfigurationRoute(out string actionName, out string controllerName, out RouteValueDictionary routeValues)
+        public override string GetConfigurationPageUrl()
         {
-            actionName = "Configure";
-            controllerName = "TaxStrikeIron";
-            routeValues = new RouteValueDictionary { { "Namespaces", "Nop.Plugin.Tax.StrikeIron.Controllers" }, { "area", null } };
+            return $"{_webHelper.GetStoreLocation()}Admin/TaxStrikeIron/Configure";
         }
-        
+
         /// <summary>
         /// Install plugin
         /// </summary>

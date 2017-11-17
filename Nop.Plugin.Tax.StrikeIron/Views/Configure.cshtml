@@ -1,16 +1,14 @@
 ﻿@{
-    Layout = "";
+    Layout = "_ConfigurePlugin";
 }
 @model Nop.Plugin.Tax.StrikeIron.Models.TaxStrikeIronModel
-@using Nop.Web.Framework;
-@using (Html.BeginForm())
-{
-    @Html.AntiForgeryToken()
+
+<form asp-controller="TaxStrikeIron" asp-action="Configure" method="post">
     <div class="panel-group">
         <div class="panel panel-default">
             <div class="panel-body">
                 <p>
-                    <b>To use this service, you need to create a StrikeIron account and purchase its online tax service.</b><br/>
+                    <b>To use this service, you need to create a StrikeIron account and purchase its online tax service.</b><br />
                     <b>To enable this provider, you'll need to:</b>
                     <br /><br />
                     Step 1. <a href="https://now.informatica.com/en_daas-free-trial-1" target="_blank">Create a StrikeIron account</a><br />
@@ -19,11 +17,11 @@
                 </p>
                 <div class="form-group">
                     <div class="col-md-3">
-                        @Html.NopLabelFor(model => model.LicenseKey)
+                        <nop-label asp-for="LicenseKey" />
                     </div>
                     <div class="col-md-9">
-                        @Html.NopEditorFor(model => model.LicenseKey)
-                        @Html.ValidationMessageFor(model => model.LicenseKey)
+                        <nop-editor asp-for="LicenseKey" />
+                        <span asp-validation-for="LicenseKey"></span>
                     </div>
                 </div>
                 <div class="form-group">
@@ -40,11 +38,11 @@
             <div class="panel-body">
                 <div class="form-group">
                     <div class="col-md-3">
-                        @Html.NopLabelFor(model => model.TestingUsaZip)
+                        <nop-label asp-for="TestingUsaZip" />
                     </div>
                     <div class="col-md-9">
                         <div class="input-group">
-                            @Html.NopEditorFor(model => model.TestingUsaZip)
+                            <nop-editor asp-for="TestingUsaZip" />
                             <div class="input-group-btn">
                                 <input type="submit" name="testUsa" class="btn btn-info" value="@T("Plugins.Tax.StrikeIron.TestService.Button")"/>
                             </div>
@@ -65,13 +63,13 @@
             <div class="panel-body">
                 <div class="form-group">
                     <div class="col-md-3">
-                        @Html.NopLabelFor(model => model.TestingCanadaProvinceCode)
+                        <nop-label asp-for="TestingCanadaProvinceCode" />
                     </div>
                     <div class="col-md-9">
                         <div class="input-group">
-                            @Html.NopEditorFor(model => model.TestingCanadaProvinceCode)
+                            <nop-editor asp-for="TestingCanadaProvinceCode" />
                             <div class="input-group-btn">
-                                <input type="submit" name="testCanada" class="btn btn-info" value="@T("Plugins.Tax.StrikeIron.TestService.Button")"/>
+                                <input type="submit" name="testCanada" class="btn btn-info" value="@T("Plugins.Tax.StrikeIron.TestService.Button")" />
                             </div>
                         </div>
                         @Html.ValidationMessageFor(model => model.TestingCanadaProvinceCode)
@@ -84,4 +82,4 @@
             </div>
         </div>
     </div>
-}
+</form>
