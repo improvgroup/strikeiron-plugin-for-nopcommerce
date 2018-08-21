@@ -26,24 +26,36 @@ namespace Nop.Plugin.Tax.StrikeIron
 
         #region Fields
 
-        private readonly ISettingService _settingService;
         private readonly ICacheManager _cacheManager;
-        private readonly StrikeIronTaxSettings _strikeIronTaxSettings;
+        private readonly ILocalizationService _localizationService;
+        private readonly ISettingService _settingService;
         private readonly IWebHelper _webHelper;
+        private readonly StrikeIronTaxSettings _strikeIronTaxSettings;
 
+        private readonly LicenseInfo _licenseInfo;
         #endregion
 
         #region Ctor
 
-        public StrikeIronTaxProvider(ISettingService settingService,
-            ICacheManager cacheManager,
-            StrikeIronTaxSettings strikeIronTaxSettings,
-            IWebHelper webHelper)
+        public StrikeIronTaxProvider(ICacheManager cacheManager,
+            ILocalizationService localizationService,
+            ISettingService settingService,
+            IWebHelper webHelper,
+            StrikeIronTaxSettings strikeIronTaxSettings)
         {
-            this._settingService = settingService;
             this._cacheManager = cacheManager;
-            this._strikeIronTaxSettings = strikeIronTaxSettings;
+            this._localizationService = localizationService;
+            this._settingService = settingService;
             this._webHelper = webHelper;
+            this._strikeIronTaxSettings = strikeIronTaxSettings;
+
+            _licenseInfo = new LicenseInfo
+            {
+                RegisteredUser = new RegisteredUser
+                {
+                    UserID = _strikeIronTaxSettings.LicenseKey
+                }
+            };
         }
 
         #endregion
@@ -135,18 +147,9 @@ namespace Nop.Plugin.Tax.StrikeIron
             return result;
         }
 
-        public TaxDataBasic.TaxDataBasic GetTaxService()
+        public TaxDataBasic.TaxDataBasicSoapClient GetTaxService()
         {
-            var taxService = new TaxDataBasic.TaxDataBasic
-            {
-                LicenseInfoValue = new LicenseInfo
-                {
-                    RegisteredUser = new RegisteredUser
-                    {
-                        UserID = _strikeIronTaxSettings.LicenseKey
-                    }
-                }
-            };
+            var taxService = new TaxDataBasic.TaxDataBasicSoapClient();
             return taxService;
         }
 
@@ -161,7 +164,7 @@ namespace Nop.Plugin.Tax.StrikeIron
         {
             var result = decimal.Zero;
 
-            var wsOutput = GetTaxService().GetTaxRateUS(zipCode);
+            var wsOutput =  GetTaxService().GetTaxRateUSAsync(_licenseInfo,zipCode).Result;
 
             // The GetTaxRateUS operation can now be called.  The output type for this operation is SIWSOutputOfTaxRateUSAData.
             // Note that for simplicity, there is no error handling in this sample project.  In a production environment, any
@@ -178,14 +181,14 @@ namespace Nop.Plugin.Tax.StrikeIron
             //   300-399: Nonfatal error (No data found, etc...)
             //   400-499: Error due to invalid input
             //   500+: Unexpected internal error; contact support@strikeiron.com
-            if ((wsOutput.ServiceStatus.StatusNbr >= 200) && (wsOutput.ServiceStatus.StatusNbr < 300))
+            if ((wsOutput.GetTaxRateUSResult.ServiceStatus.StatusNbr >= 200) && (wsOutput.GetTaxRateUSResult.ServiceStatus.StatusNbr < 300))
             {
-                result = Convert.ToDecimal(wsOutput.ServiceResult.TotalUseTax);
+                result = Convert.ToDecimal(wsOutput.GetTaxRateUSResult.ServiceResult.TotalUseTax);
             }
             else
             {
                 // StrikeIron does not return SoapFault for invalid data when it cannot find a zipcode. 
-                error = $"[{wsOutput.ServiceStatus.StatusNbr}] - {wsOutput.ServiceStatus.StatusDescription}";
+                error = $"[{wsOutput.GetTaxRateUSResult.ServiceStatus.StatusNbr}] - {wsOutput.GetTaxRateUSResult.ServiceStatus.StatusDescription}";
             }
 
             return result;
@@ -205,7 +208,7 @@ namespace Nop.Plugin.Tax.StrikeIron
             // The GetTaxRateCanada operation can now be called.  The output type for this operation is SIWSOutputOfTaxRateCanadaData.
             // Note that for simplicity, there is no error handling in this sample project.  In a production environment, any
             // web service call should be encapsulated in a try-catch block.
-            var wsOutput = GetTaxService().GetTaxRateCanada(province);
+            var wsOutput = GetTaxService().GetTaxRateCanadaAsync(_licenseInfo, province).Result;
 
             // The output objects of this StrikeIron web service contains two sections: ServiceStatus, which stores data
             // indicating the success/failure status of the the web service request; and ServiceResult, which contains the
@@ -218,14 +221,15 @@ namespace Nop.Plugin.Tax.StrikeIron
             //   300-399: Nonfatal error (No data found, etc...)
             //   400-499: Error due to invalid input
             //   500+: Unexpected internal error; contact support@strikeiron.com
-            if ((wsOutput.ServiceStatus.StatusNbr >= 200) && (wsOutput.ServiceStatus.StatusNbr < 300))
+            if ((wsOutput.GetTaxRateCanadaResult.ServiceStatus.StatusNbr >= 200) && (wsOutput.GetTaxRateCanadaResult.ServiceStatus.StatusNbr < 300))
             {
-                result = Convert.ToDecimal(wsOutput.ServiceResult.Total);
+                result = Convert.ToDecimal(wsOutput.GetTaxRateCanadaResult.ServiceResult.Total);
             }
             else
             {
-                error = $"[{wsOutput.ServiceStatus.StatusNbr}] - {wsOutput.ServiceStatus.StatusDescription}";
+                error = $"[{wsOutput.GetTaxRateCanadaResult.ServiceStatus.StatusNbr}] - {wsOutput.GetTaxRateCanadaResult.ServiceStatus.StatusDescription}";
             }
+
 
             return result;
         }
@@ -249,15 +253,15 @@ namespace Nop.Plugin.Tax.StrikeIron
             _settingService.SaveSetting(settings);
 
             //locales
-            this.AddOrUpdatePluginLocaleResource("Plugins.Tax.StrikeIron.LicenseKey", "StrikeIron license key");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Tax.StrikeIron.LicenseKey.Hint", "Specify StrikeIron license key.");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Tax.StrikeIron.TestingUsa.Title", "Test Online Tax Service (USA)");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Tax.StrikeIron.TestingUsa.Zip", "Zip Code");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Tax.StrikeIron.TestingUsa.Zip.Hint", "Specify zip code for testing. For example, type '10001'.");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Tax.StrikeIron.TestingCanada.Title", "Test Online Tax Service (Canada)");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Tax.StrikeIron.TestingCanada.ProvinceCode", "Two Letter Province Code");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Tax.StrikeIron.TestingCanada.ProvinceCode.Hint", "Specify two letter province code for testing. For example, type 'ON'.");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Tax.StrikeIron.TestService.Button", "Test service");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Tax.StrikeIron.LicenseKey", "StrikeIron license key");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Tax.StrikeIron.LicenseKey.Hint", "Specify StrikeIron license key.");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Tax.StrikeIron.TestingUsa.Title", "Test Online Tax Service (USA)");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Tax.StrikeIron.TestingUsa.Zip", "Zip Code");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Tax.StrikeIron.TestingUsa.Zip.Hint", "Specify zip code for testing. For example, type '10001'.");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Tax.StrikeIron.TestingCanada.Title", "Test Online Tax Service (Canada)");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Tax.StrikeIron.TestingCanada.ProvinceCode", "Two Letter Province Code");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Tax.StrikeIron.TestingCanada.ProvinceCode.Hint", "Specify two letter province code for testing. For example, type 'ON'.");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Tax.StrikeIron.TestService.Button", "Test service");
 
             base.Install();
         }
@@ -271,15 +275,15 @@ namespace Nop.Plugin.Tax.StrikeIron
             _settingService.DeleteSetting<StrikeIronTaxSettings>();
 
             //locales
-            this.DeletePluginLocaleResource("Plugins.Tax.StrikeIron.LicenseKey");
-            this.DeletePluginLocaleResource("Plugins.Tax.StrikeIron.LicenseKey.Hint");
-            this.DeletePluginLocaleResource("Plugins.Tax.StrikeIron.TestingUsa.Title");
-            this.DeletePluginLocaleResource("Plugins.Tax.StrikeIron.TestingUsa.Zip");
-            this.DeletePluginLocaleResource("Plugins.Tax.StrikeIron.TestingUsa.Zip.Hint");
-            this.DeletePluginLocaleResource("Plugins.Tax.StrikeIron.TestingCanada.Title");
-            this.DeletePluginLocaleResource("Plugins.Tax.StrikeIron.TestingCanada.ProvinceCode");
-            this.DeletePluginLocaleResource("Plugins.Tax.StrikeIron.TestingCanada.ProvinceCode.Hint");
-            this.DeletePluginLocaleResource("Plugins.Tax.StrikeIron.TestService.Button");
+            _localizationService.DeletePluginLocaleResource("Plugins.Tax.StrikeIron.LicenseKey");
+            _localizationService.DeletePluginLocaleResource("Plugins.Tax.StrikeIron.LicenseKey.Hint");
+            _localizationService.DeletePluginLocaleResource("Plugins.Tax.StrikeIron.TestingUsa.Title");
+            _localizationService.DeletePluginLocaleResource("Plugins.Tax.StrikeIron.TestingUsa.Zip");
+            _localizationService.DeletePluginLocaleResource("Plugins.Tax.StrikeIron.TestingUsa.Zip.Hint");
+            _localizationService.DeletePluginLocaleResource("Plugins.Tax.StrikeIron.TestingCanada.Title");
+            _localizationService.DeletePluginLocaleResource("Plugins.Tax.StrikeIron.TestingCanada.ProvinceCode");
+            _localizationService.DeletePluginLocaleResource("Plugins.Tax.StrikeIron.TestingCanada.ProvinceCode.Hint");
+            _localizationService.DeletePluginLocaleResource("Plugins.Tax.StrikeIron.TestService.Button");
 
             base.Uninstall();
         }

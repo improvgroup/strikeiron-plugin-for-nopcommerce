@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Nop.Plugin.Tax.StrikeIron.Models;
 using Nop.Services.Configuration;
 using Nop.Services.Localization;
+using Nop.Services.Logging;
 using Nop.Services.Security;
 using Nop.Services.Tax;
 using Nop.Web.Framework;
@@ -17,27 +18,31 @@ namespace Nop.Plugin.Tax.StrikeIron.Controllers
     {
         #region Fields
 
-        private readonly ITaxService _taxService;
-        private readonly ISettingService _settingService;
         private readonly ILocalizationService _localizationService;
-        private readonly StrikeIronTaxSettings _strikeIronTaxSettings;
+        private readonly ILogger _logger;
         private readonly IPermissionService _permissionService;
+        private readonly ISettingService _settingService;
+        private readonly ITaxService _taxService;
+        private readonly StrikeIronTaxSettings _strikeIronTaxSettings;
+        
 
         #endregion
 
         #region Ctor
 
-        public TaxStrikeIronController(ITaxService taxService,
+        public TaxStrikeIronController(ILocalizationService localizationService,
+            ILogger logger,
+            IPermissionService permissionService,
             ISettingService settingService,
-            ILocalizationService localizationService,
-            StrikeIronTaxSettings strikeIronTaxSettings,
-            IPermissionService permissionService)
+            ITaxService taxService,
+            StrikeIronTaxSettings strikeIronTaxSettings)
         {
-            this._taxService = taxService;
-            this._settingService = settingService;
             this._localizationService = localizationService;
-            this._strikeIronTaxSettings = strikeIronTaxSettings;
+            this._logger = logger;
             this._permissionService = permissionService;
+            this._settingService = settingService;
+            this._taxService = taxService;
+            this._strikeIronTaxSettings = strikeIronTaxSettings;
         }
 
         #endregion
@@ -64,7 +69,8 @@ namespace Nop.Plugin.Tax.StrikeIron.Controllers
             }
             catch (Exception exc)
             {
-                return exc.ToString();
+                _logger.Error($"StrikeIron error: {exc.Message}", exc);
+                return exc.Message;
             }
         }
 
